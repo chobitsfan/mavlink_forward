@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import socket, time, select, subprocess, re
+import socket, time, select, subprocess, re, sys
 from pymavlink import mavutil
 from pymavlink.dialects.v10 import ardupilotmega as mavlink
 
@@ -23,9 +23,12 @@ def init_mav():
     return mav_master
 
 if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print 'server_ip:port required'
+        sys.exit()
     mav_master = init_mav()
     inject_mav = mavlink.MAVLink(nothing(), mav_master.target_system, 1)
-    mav_relay = mavutil.mavlink_connection(device="udpout:140.96.178.37:8070", source_system = mav_master.target_system)
+    mav_relay = mavutil.mavlink_connection(device="udpout:"+sys.argv[1], source_system = mav_master.target_system)
     ts = time.time()
     ts2 = ts
     qmi_ts = ts

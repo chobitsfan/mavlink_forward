@@ -33,8 +33,9 @@ if __name__ == "__main__":
     buf = ""
     count = 0
     while True:
-        data = mav_master.recv()
-        if data is not None:
+        msg = mav_master.recv_msg()
+        if msg is not None and msg.get_type != "BAD_DATA":
+            data = msg.pack(inject_mav)
             buf = buf + data
             if len(buf) > 100:
                 mav_relay.write(buf)

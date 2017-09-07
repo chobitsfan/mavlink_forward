@@ -3,6 +3,7 @@
 import socket, time, select, subprocess, re, sys
 from pymavlink import mavutil
 from pymavlink.dialects.v10 import ardupilotmega as mavlink
+from play_tune import Buzzer
 
 class nothing(object):
     def __init__(self):
@@ -35,6 +36,8 @@ if __name__ == "__main__":
     qmi_proc = None
     buf = ""
     count = 0
+    arm_count = 0
+    buzzer = Buzzer()
     while True:
         msg = mav_master.recv_msg()
         if msg is not None and msg.get_type != "BAD_DATA":
@@ -53,6 +56,25 @@ if __name__ == "__main__":
                 out_msg = inject_mav.ping_encode(msg.time_usec, msg.seq, msg.get_srcSystem(), msg.get_srcComponent())
                 data = out_msg.pack(inject_mav)
                 buf = buf + data
+            elif msg_type == "COMMAND_LONG" and msg.command == 400: #ARM_DSARM
+                if msg.param1 == 0:
+                    print 'recv disarm'
+                    arm_count = 0
+                    mav_master.mav.send(msg)
+                else:
+                    print 'recv arm'
+                    if arm_count > 1:
+                        arm_count = 0
+                        mav_master.mav.send(msg)
+                    else:
+                        buzzer.play(5)
+                        arm_count = arm_count + 1
+                        out_msg = inject_mav.command_ack_encode(400, 1)
+                        data = out_msg.pack(inject_mav)
+                        buf = buf + data
+                        out_msg = inject_mav.statustext_encode(5, "Arm: try again")
+                        data = out_msg.pack(inject_mav)
+                        buf = buf + data
             elif msg_type != "BAD_DATA":
                 mav_master.mav.send(msg)
 

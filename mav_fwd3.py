@@ -56,7 +56,7 @@ if __name__ == "__main__":
                 out_msg = inject_mav.ping_encode(msg.time_usec, msg.seq, msg.get_srcSystem(), msg.get_srcComponent())
                 data = out_msg.pack(inject_mav)
                 buf = buf + data
-            elif msg_type == "COMMAND_LONG" and msg.command == 400: #ARM_DSARM
+            elif msg_type == "COMMAND_LONG" and msg.command == 400 and msg.target_system == mav_master.target_system: #ARM_DSARM
                 if msg.param1 == 0:
                     print 'recv disarm'
                     arm_count = 0

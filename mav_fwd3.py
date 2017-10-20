@@ -91,7 +91,10 @@ if __name__ == "__main__":
             count = 0
         if qmi_proc is None:
             if cur_ts - qmi_ts > 5:
-                qmi_proc = subprocess.Popen(['/usr/bin/qmicli', '-d','/dev/cdc-wdm0','--nas-get-signal-strength'], stdout=subprocess.PIPE)
+                try:
+                    qmi_proc = subprocess.Popen(['/usr/bin/qmicli', '-d','/dev/cdc-wdm0','--nas-get-signal-strength'], stdout=subprocess.PIPE)
+                except OSError:
+                    qmi_ts = cur_ts #try again later
         else:
             if qmi_proc.poll() is not None and qmi_proc.poll() == 0:
                 txt = qmi_proc.stdout.read()

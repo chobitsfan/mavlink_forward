@@ -40,7 +40,7 @@ if __name__ == "__main__":
     buzzer = Buzzer()
     while True:
         msg = mav_master.recv_msg()
-        if msg is not None and msg.get_type != "BAD_DATA":
+        if msg is not None and msg.get_type() != "BAD_DATA":
             data = msg.pack(inject_mav)
             buf = buf + data
             if len(buf) > 100:

@@ -38,9 +38,20 @@ if __name__ == "__main__":
     count = 0
     arm_count = 0
     buzzer = Buzzer()
+    gcs_hb_ts = 0
+    Normal, Hold, Retreat, Failsafe = range(4)
+    status = Normal
+    retreat_point = None
+    retreat_point_ts = 0
     while True:
+        cur_ts = time.time()
+
         msg = mav_master.recv_msg()
         if msg is not None and msg.get_type() != "BAD_DATA":
+            if msg.get_type() == "GLOBAL_POSITION_INT" and status == Normal and cur_ts - retreat_point_ts > 5:
+                retreat_point_ts = cur_ts
+                retreat_point = (msg.lat, msg.lon, msg.alt)
+                print 'record retreat point', retreat_point
             data = msg.pack(inject_mav)
             buf = buf + data
             if len(buf) > 100:
@@ -75,10 +86,38 @@ if __name__ == "__main__":
                         out_msg = inject_mav.statustext_encode(5, "Arm: try again")
                         data = out_msg.pack(inject_mav)
                         buf = buf + data
+            elif msg_type == "HEARTBEAT":
+                gcs_hb_ts = time.time()
+                mav_master.mav.send(msg)
             elif msg_type != "BAD_DATA":
                 mav_master.mav.send(msg)
 
-        cur_ts = time.time()
+        if status == Normal:
+            if gcs_hb_ts != 0 and cur_ts - gcs_hb_ts > 5:
+                print "Hold"
+                status = Hold
+                mav_master.set_mode("BRAKE")
+        elif status == Hold:
+            if cur_ts - gcs_hb_ts > 10:
+                print "Retreat"
+                status = Retreat
+                if retreat_point is not None:
+                    mav_master.set_mode("GUIDED")
+                    mav_master.mav.set_position_target_global_int_send(0, mav_master.target_system, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_INT, 0b0000111111111000, retreat_point[0], retreat_point[1], retreat_point[2] / 1000.0, 0, 0, 0, 0, 0, 0, 0, 0)
+            elif cur_ts - gcs_hb_ts < 1:
+                status = Normal
+        elif status == Retreat:
+            if cur_ts - gcs_hb_ts > 15:
+                print "Failsafe"
+                status = Failsafe
+                mav_master.set_mode("LAND")
+            elif cur_ts - gcs_hb_ts < 1:
+                status = Normal
+                mav_master.set_mode("BRAKE")
+        elif status == Failsafe:
+            if cur_ts - gcs_hb_ts < 1:
+               status = Normal
+
         if cur_ts - ts > 0.02:
             ts = cur_ts
             if len(buf) > 0:

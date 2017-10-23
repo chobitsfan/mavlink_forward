@@ -55,7 +55,7 @@ if __name__ == "__main__":
 
         msg = mav_master.recv_msg()
         if msg is not None and msg.get_type() != "BAD_DATA":
-            if msg.get_type() == "GLOBAL_POSITION_INT" and status == Normal and cur_ts - recall_point_ts > 5:
+            if msg.get_type() == "GLOBAL_POSITION_INT" and status == Normal and mav_master.flightmode in ["AUTO", "GUIDED"] and cur_ts - recall_point_ts > 5:
                 recall_point_ts = cur_ts
                 recall_point = (msg.lat, msg.lon, msg.alt)
                 print 'record recall point', recall_point
@@ -100,7 +100,7 @@ if __name__ == "__main__":
                 mav_master.mav.send(msg)
 
         if status == Normal:
-            if gcs_hb_ts != 0 and cur_ts - gcs_hb_ts > 5:
+            if mav_master.flightmode in ["AUTO", "GUIDED"] and gcs_hb_ts != 0 and cur_ts - gcs_hb_ts > 5:
                 print "Hold"
                 status = Hold
                 set_mode_many(mav_master, "BRAKE")

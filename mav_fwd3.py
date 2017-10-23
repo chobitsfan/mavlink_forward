@@ -125,7 +125,8 @@ if __name__ == "__main__":
                 set_mode_many(mav_master, "BRAKE")
         elif status == Failsafe:
             if cur_ts - gcs_hb_ts < 1:
-               status = Normal
+                status = Normal
+                set_mode_many(mav_master, "BRAKE")
 
         if cur_ts - ts > 0.02:
             ts = cur_ts

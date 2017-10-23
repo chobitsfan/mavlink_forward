@@ -46,19 +46,19 @@ if __name__ == "__main__":
     arm_count = 0
     buzzer = Buzzer()
     gcs_hb_ts = 0
-    Normal, Hold, Retreat, Failsafe = range(4)
+    Normal, Hold, Recall, Failsafe = range(4)
     status = Normal
-    retreat_point = None
-    retreat_point_ts = 0
+    recall_point = None
+    recall_point_ts = 0
     while True:
         cur_ts = time.time()
 
         msg = mav_master.recv_msg()
         if msg is not None and msg.get_type() != "BAD_DATA":
-            if msg.get_type() == "GLOBAL_POSITION_INT" and status == Normal and cur_ts - retreat_point_ts > 5:
-                retreat_point_ts = cur_ts
-                retreat_point = (msg.lat, msg.lon, msg.alt)
-                print 'record retreat point', retreat_point
+            if msg.get_type() == "GLOBAL_POSITION_INT" and status == Normal and cur_ts - recall_point_ts > 5:
+                recall_point_ts = cur_ts
+                recall_point = (msg.lat, msg.lon, msg.alt)
+                print 'record recall point', recall_point
             data = msg.pack(inject_mav)
             buf = buf + data
             if len(buf) > 100:
@@ -106,16 +106,16 @@ if __name__ == "__main__":
                 set_mode_many(mav_master, "BRAKE")
         elif status == Hold:
             if cur_ts - gcs_hb_ts > 10:
-                print "Retreat"
-                status = Retreat
-                if retreat_point is not None:
+                print "Recall"
+                status = Recall
+                if recall_point is not None:
                     set_mode_many(mav_master, "GUIDED")
-                    mav_master.mav.set_position_target_global_int_send(0, mav_master.target_system, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_INT, 0b0000111111111000, retreat_point[0], retreat_point[1], retreat_point[2] / 1000.0, 0, 0, 0, 0, 0, 0, 0, 0)
+                    mav_master.mav.set_position_target_global_int_send(0, mav_master.target_system, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_INT, 0b0000111111111000, recall_point[0], recall_point[1], recall_point[2] / 1000.0, 0, 0, 0, 0, 0, 0, 0, 0)
                     time.sleep(0.02)
-                    mav_master.mav.set_position_target_global_int_send(0, mav_master.target_system, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_INT, 0b0000111111111000, retreat_point[0], retreat_point[1], retreat_point[2] / 1000.0, 0, 0, 0, 0, 0, 0, 0, 0)
+                    mav_master.mav.set_position_target_global_int_send(0, mav_master.target_system, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_INT, 0b0000111111111000, recall_point[0], recall_point[1], recall_point[2] / 1000.0, 0, 0, 0, 0, 0, 0, 0, 0)
             elif cur_ts - gcs_hb_ts < 1:
                 status = Normal
-        elif status == Retreat:
+        elif status == Recall:
             if cur_ts - gcs_hb_ts > 20:
                 print "Failsafe"
                 status = Failsafe

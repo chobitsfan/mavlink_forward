@@ -23,6 +23,13 @@ def init_mav():
             break
     return mav_master
 
+def set_mode_many(mav_master, mode):
+    mav_master.set_mode(mode)
+    time.sleep(0.02)
+    mav_master.set_mode(mode)
+    time.sleep(0.02)
+    mav_master.set_mode(mode)
+    time.sleep(0.02)
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print 'server_ip:port required'
@@ -96,24 +103,26 @@ if __name__ == "__main__":
             if gcs_hb_ts != 0 and cur_ts - gcs_hb_ts > 5:
                 print "Hold"
                 status = Hold
-                mav_master.set_mode("BRAKE")
+                set_mode_many(mav_master, "BRAKE")
         elif status == Hold:
             if cur_ts - gcs_hb_ts > 10:
                 print "Retreat"
                 status = Retreat
                 if retreat_point is not None:
-                    mav_master.set_mode("GUIDED")
+                    set_mode_many(mav_master, "GUIDED")
+                    mav_master.mav.set_position_target_global_int_send(0, mav_master.target_system, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_INT, 0b0000111111111000, retreat_point[0], retreat_point[1], retreat_point[2] / 1000.0, 0, 0, 0, 0, 0, 0, 0, 0)
+                    time.sleep(0.02)
                     mav_master.mav.set_position_target_global_int_send(0, mav_master.target_system, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_INT, 0b0000111111111000, retreat_point[0], retreat_point[1], retreat_point[2] / 1000.0, 0, 0, 0, 0, 0, 0, 0, 0)
             elif cur_ts - gcs_hb_ts < 1:
                 status = Normal
         elif status == Retreat:
-            if cur_ts - gcs_hb_ts > 15:
+            if cur_ts - gcs_hb_ts > 20:
                 print "Failsafe"
                 status = Failsafe
-                mav_master.set_mode("LAND")
+                set_mode_many(mav_master, "LAND")
             elif cur_ts - gcs_hb_ts < 1:
                 status = Normal
-                mav_master.set_mode("BRAKE")
+                set_mode_many(mav_master, "BRAKE")
         elif status == Failsafe:
             if cur_ts - gcs_hb_ts < 1:
                status = Normal

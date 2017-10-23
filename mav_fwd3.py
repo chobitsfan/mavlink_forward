@@ -30,6 +30,7 @@ def set_mode_many(mav_master, mode):
     time.sleep(0.02)
     mav_master.set_mode(mode)
     time.sleep(0.02)
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print 'server_ip:port required'

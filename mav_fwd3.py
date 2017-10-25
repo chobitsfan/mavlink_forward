@@ -21,7 +21,8 @@ def init_mav():
         if hb.type != mavutil.mavlink.MAV_TYPE_GCS:
             print "Heartbeat from APM system", mav_master.target_system
             break
-    return mav_master
+    mav_modes = mav_master.mode_mapping()
+    return (mav_master, mav_modes)
 
 def set_mode_many(mav_master, mode):
     mav_master.set_mode(mode)
@@ -31,11 +32,11 @@ def set_mode_many(mav_master, mode):
     mav_master.set_mode(mode)
     time.sleep(0.02)
 
-if __name__ == "__main__":
+def my_main():
     if len(sys.argv) < 2:
         print 'server_ip:port required'
         sys.exit()
-    mav_master = init_mav()
+    mav_master, mav_modes = init_mav()
     inject_mav = mavlink.MAVLink(nothing(), mav_master.target_system, 1)
     mav_relay = mavutil.mavlink_connection(device="udpout:"+sys.argv[1], source_system = mav_master.target_system)
     ts = time.time()
@@ -104,30 +105,35 @@ if __name__ == "__main__":
             if mav_master.flightmode in ["AUTO", "GUIDED"] and gcs_hb_ts != 0 and cur_ts - gcs_hb_ts > 5:
                 print "Hold"
                 status = Hold
-                set_mode_many(mav_master, "BRAKE")
+                set_mode_many(mav_master, mav_modes["BRAKE"])
         elif status == Hold:
             if cur_ts - gcs_hb_ts > 10:
                 print "Recall"
                 status = Recall
                 if recall_point is not None:
-                    set_mode_many(mav_master, "GUIDED")
+                    set_mode_many(mav_master, mav_modes["GUIDED"])
+                    mav_master.mav.set_position_target_global_int_send(0, mav_master.target_system, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_INT, 0b0000111111111000, recall_point[0], recall_point[1], recall_point[2] / 1000.0, 0, 0, 0, 0, 0, 0, 0, 0)
+                    time.sleep(0.02)
                     mav_master.mav.set_position_target_global_int_send(0, mav_master.target_system, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_INT, 0b0000111111111000, recall_point[0], recall_point[1], recall_point[2] / 1000.0, 0, 0, 0, 0, 0, 0, 0, 0)
                     time.sleep(0.02)
                     mav_master.mav.set_position_target_global_int_send(0, mav_master.target_system, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_INT, 0b0000111111111000, recall_point[0], recall_point[1], recall_point[2] / 1000.0, 0, 0, 0, 0, 0, 0, 0, 0)
             elif cur_ts - gcs_hb_ts < 1:
+                print "Normal"
                 status = Normal
         elif status == Recall:
             if cur_ts - gcs_hb_ts > 20:
                 print "Failsafe"
                 status = Failsafe
-                set_mode_many(mav_master, "LAND")
+                set_mode_many(mav_master, mav_modes["LAND"])
             elif cur_ts - gcs_hb_ts < 1:
+                print "Normal"
                 status = Normal
-                set_mode_many(mav_master, "BRAKE")
+                set_mode_many(mav_master, mav_modes["BRAKE"])
         elif status == Failsafe:
             if cur_ts - gcs_hb_ts < 1:
+                print "Normal"
                 status = Normal
-                set_mode_many(mav_master, "BRAKE")
+                set_mode_many(mav_master, mav_modes["BRAKE"])
 
         if cur_ts - ts > 0.02:
             ts = cur_ts
@@ -136,7 +142,7 @@ if __name__ == "__main__":
                 buf = ""
                 count = count + 1
         if cur_ts - ts2 > 1:
-            print count, 'pps'
+            #print count, 'pps'
             ts2 = cur_ts
             count = 0
         if qmi_proc is None:
@@ -154,10 +160,12 @@ if __name__ == "__main__":
                    if m is not None:
                        cel_technology = m.group(1).lower()
                        cel_rssi = m.group(2)
-                       print 'celluar_status', cel_technology, cel_rssi
+                       #print 'celluar_status', cel_technology, cel_rssi
                        msg = inject_mav.cellular_status_encode(cel_technology, int(cel_rssi))
                        data = msg.pack(inject_mav)
                        buf = buf + data
                 qmi_ts = time.time()
                 qmi_proc = None
 
+if __name__ == "__main__":
+    my_main()

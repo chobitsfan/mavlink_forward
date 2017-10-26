@@ -24,14 +24,6 @@ def init_mav():
     mav_modes = mav_master.mode_mapping()
     return (mav_master, mav_modes)
 
-def set_mode_many(mav_master, mode):
-    mav_master.set_mode(mode)
-    time.sleep(0.02)
-    mav_master.set_mode(mode)
-    time.sleep(0.02)
-    mav_master.set_mode(mode)
-    time.sleep(0.02)
-
 def my_main():
     if len(sys.argv) < 2:
         print 'server_ip:port required'
@@ -61,6 +53,16 @@ def my_main():
                 recall_point_ts = cur_ts
                 recall_point = (msg.lat, msg.lon, msg.alt)
                 print 'record recall point', recall_point
+            elif msg.get_type() == "HEARTBEAT":
+                if status == Hold and mav_master.flightmode != "BRAKE":
+                    mav_master.set_mode(mav_modes["BRAKE"])
+                elif status == Recall:
+                    if mav_master.flightmode == "GUIDED":
+                        mav_master.mav.set_position_target_global_int_send(0, mav_master.target_system, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_INT, 0b0000111111111000, recall_point[0], recall_point[1], recall_point[2] / 1000.0, 0, 0, 0, 0, 0, 0, 0, 0)
+                    else:
+                        mav_master.set_mode(mav_modes["GUIDED"])
+                elif status == Failsafe and mav_master.flightmode != "LAND":
+                    mav_master.set_mode(mav_modes["LAND"])
             data = msg.pack(inject_mav)
             buf = buf + data
             if len(buf) > 100:
@@ -105,18 +107,13 @@ def my_main():
             if mav_master.flightmode in ["AUTO", "GUIDED"] and gcs_hb_ts != 0 and cur_ts - gcs_hb_ts > 5:
                 print "Hold"
                 status = Hold
-                set_mode_many(mav_master, mav_modes["BRAKE"])
+                mav_master.set_mode(mav_modes["BRAKE"])
         elif status == Hold:
             if cur_ts - gcs_hb_ts > 10:
                 print "Recall"
                 status = Recall
                 if recall_point is not None:
-                    set_mode_many(mav_master, mav_modes["GUIDED"])
-                    mav_master.mav.set_position_target_global_int_send(0, mav_master.target_system, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_INT, 0b0000111111111000, recall_point[0], recall_point[1], recall_point[2] / 1000.0, 0, 0, 0, 0, 0, 0, 0, 0)
-                    time.sleep(0.02)
-                    mav_master.mav.set_position_target_global_int_send(0, mav_master.target_system, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_INT, 0b0000111111111000, recall_point[0], recall_point[1], recall_point[2] / 1000.0, 0, 0, 0, 0, 0, 0, 0, 0)
-                    time.sleep(0.02)
-                    mav_master.mav.set_position_target_global_int_send(0, mav_master.target_system, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_INT, 0b0000111111111000, recall_point[0], recall_point[1], recall_point[2] / 1000.0, 0, 0, 0, 0, 0, 0, 0, 0)
+                    mav_master.set_mode(mav_modes["GUIDED"])
             elif cur_ts - gcs_hb_ts < 1:
                 print "Normal"
                 status = Normal
@@ -124,16 +121,16 @@ def my_main():
             if cur_ts - gcs_hb_ts > 20:
                 print "Failsafe"
                 status = Failsafe
-                set_mode_many(mav_master, mav_modes["LAND"])
+                mav_master.set_mode(mav_modes["LAND"])
             elif cur_ts - gcs_hb_ts < 1:
-                print "Normal"
-                status = Normal
-                set_mode_many(mav_master, mav_modes["BRAKE"])
+                print "Hold"
+                status = Hold
+                mav_master.set_mode(mav_modes["BRAKE"])
         elif status == Failsafe:
             if cur_ts - gcs_hb_ts < 1:
-                print "Normal"
-                status = Normal
-                set_mode_many(mav_master, mav_modes["BRAKE"])
+                print "Hold"
+                status = Hold
+                mav_master.set_mode(mav_modes["BRAKE"])
 
         if cur_ts - ts > 0.02:
             ts = cur_ts
@@ -169,3 +166,4 @@ def my_main():
 
 if __name__ == "__main__":
     my_main()
+

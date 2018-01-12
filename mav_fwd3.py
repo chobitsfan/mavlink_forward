@@ -14,7 +14,7 @@ class nothing(object):
         return []
 
 def init_mav():
-    mav_master = mavutil.mavlink_connection(device="/dev/ttyAMA0", baud=921600, source_system=255)
+    mav_master = mavutil.mavlink_connection(device="/dev/ttyAMA0", baud=115200, source_system=255)
     print "Waiting for APM heartbeat"
     while True:
         hb = mav_master.recv_match(type='HEARTBEAT', blocking=True)

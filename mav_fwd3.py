@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import socket, time, select, subprocess, re, sys
+import socket, time, select, subprocess, re, sys, serial
 from pymavlink import mavutil
 from pymavlink.dialects.v10 import ardupilotmega as mavlink
 from play_tune import Buzzer
@@ -31,6 +31,10 @@ def my_main():
     mav_master, mav_modes = init_mav()
     inject_mav = mavlink.MAVLink(nothing(), mav_master.target_system, 1)
     mav_relay = mavutil.mavlink_connection(device="udpout:"+sys.argv[1], source_system = mav_master.target_system)
+    try:
+        rtk_base = serial.Serial('/dev/ttyUSB0', 57600, timeout = 0)
+    except serial.SerialException:
+        rtk_base = None
     ts = time.time()
     ts2 = ts
     qmi_ts = ts
@@ -69,6 +73,11 @@ def my_main():
                 mav_relay.write(buf)
                 buf = ""
                 count = count + 1
+
+        if rtk_base is not None:
+            rtcm_data = rtk_base.read(180)
+            if len(rtcm_data) > 0:
+                mav_master.mav.gps_rtcm_data_send(0, len(rtcm_data), bytearray(rtcm_data.ljust(180, '\0')))
 
         msg = mav_relay.recv_msg()
         if msg is not None:

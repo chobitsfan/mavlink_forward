@@ -3,7 +3,7 @@
 import socket, time, select, subprocess, re, sys, serial
 from pymavlink import mavutil
 from pymavlink.dialects.v10 import ardupilotmega as mavlink
-from play_tune import Buzzer
+#from play_tune import Buzzer
 
 class nothing(object):
     def __init__(self):
@@ -52,7 +52,7 @@ def my_main():
     buf = ""
     count = 0
     arm_count = 0
-    buzzer = Buzzer()
+    #buzzer = Buzzer()
     gcs_hb_ts = 0
     Normal, Hold, Recall, Failsafe = range(4)
     status = Normal
@@ -113,7 +113,7 @@ def my_main():
                         arm_count = 0
                         mav_master.mav.send(msg)
                     else:
-                        buzzer.play(5)
+                        #buzzer.play(5)
                         arm_count = arm_count + 1
                         out_msg = inject_mav.command_ack_encode(400, 1)
                         data = out_msg.pack(inject_mav)

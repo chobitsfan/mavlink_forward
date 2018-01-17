@@ -13,6 +13,12 @@ class nothing(object):
     def read(self):
         return []
 
+class empty_conn(object):
+    def recv_msg(self):
+        return None
+    def write(self,buf):
+        return
+
 def init_mav():
     mav_master = mavutil.mavlink_connection(device="/dev/ttyAMA0", baud=115200, source_system=255)
     print "Waiting for APM heartbeat"
@@ -25,12 +31,15 @@ def init_mav():
     return (mav_master, mav_modes)
 
 def my_main():
-    if len(sys.argv) < 2:
-        print 'server_ip:port required'
-        sys.exit()
     mav_master, mav_modes = init_mav()
     inject_mav = mavlink.MAVLink(nothing(), mav_master.target_system, 1)
-    mav_relay = mavutil.mavlink_connection(device="udpout:"+sys.argv[1], source_system = mav_master.target_system)
+
+    if len(sys.argv) < 2:
+        print 'no relay server_ip:port, disable mavlink forward'
+        mav_relay = empty_conn()
+    else:
+        mav_relay = mavutil.mavlink_connection(device="udpout:"+sys.argv[1], source_system = mav_master.target_system)
+
     try:
         #rtk_base = serial.Serial('/dev/ttyUSB0', 57600, timeout = 0)
         rtk_base = mavutil.mavlink_connection('/dev/ttyUSB0', baud=57600)

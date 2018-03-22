@@ -46,7 +46,7 @@ def my_main():
     except serial.SerialException:
         rtk_base = None
     ts = time.time()
-    ts2 = ts
+    #ts2 = ts
     qmi_ts = ts
     qmi_proc = None
     buf = ""
@@ -162,15 +162,17 @@ def my_main():
                 mav_relay.write(buf)
                 buf = ""
                 count = count + 1
-        if cur_ts - ts2 > 1:
-            #print count, 'pps'
-            ts2 = cur_ts
-            count = 0
+        #if cur_ts - ts2 > 1:
+        #    print count, 'pps'
+        #    ts2 = cur_ts
+        #    count = 0
         if qmi_proc is None:
             if cur_ts - qmi_ts > 5:
                 try:
-                    qmi_proc = subprocess.Popen(['/usr/bin/qmicli', '-d','/dev/cdc-wdm0','--nas-get-signal-strength'], stdout=subprocess.PIPE)
-                except OSError:
+                    #qmi_proc = subprocess.Popen(['/usr/bin/qmicli', '-d','/dev/cdc-wdm0','--nas-get-signal-strength'], stdout=subprocess.PIPE)
+                    qmi_proc = subprocess.Popen(['./cellular_info.sh'], stdout=subprocess.PIPE)
+                except OSError as oops_err:
+                    print oops_err
                     qmi_ts = cur_ts #try again later
         else:
             if qmi_proc.poll() is not None and qmi_proc.poll() == 0:
@@ -183,6 +185,15 @@ def my_main():
                        cel_rssi = m.group(2)
                        #print 'celluar_status', cel_technology, cel_rssi
                        msg = inject_mav.cellular_status_encode(cel_technology, int(cel_rssi))
+                       data = msg.pack(inject_mav)
+                       buf = buf + data
+                s = txt.find('Cell ID:')
+                if s > -1:
+                   m = re.match("'([0-9]+)'", txt[s+9:])
+                   if m is not None:
+                       cell_id = int(m.group(1))
+                       #print 'cell_id', cell_id
+                       msg = inject_mav.named_value_int_encode(0, 'cell_id', cell_id)
                        data = msg.pack(inject_mav)
                        buf = buf + data
                 qmi_ts = time.time()

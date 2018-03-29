@@ -176,26 +176,25 @@ def my_main():
                     qmi_ts = cur_ts #try again later
         else:
             if qmi_proc.poll() is not None and qmi_proc.poll() == 0:
+                cell_technology = None
+                cell_id = None
                 txt = qmi_proc.stdout.read()
-                s = txt.find('Current:\n\tNetwork')
-                if s > -1:
-                   m = re.match("'([0-9a-zA-Z]+)': '-([0-9]+) dBm'", txt[s+18:])
-                   if m is not None:
-                       cel_technology = m.group(1).lower()
-                       cel_rssi = m.group(2)
-                       #print 'celluar_status', cel_technology, cel_rssi
-                       msg = inject_mav.cellular_status_encode(cel_technology, int(cel_rssi))
-                       data = msg.pack(inject_mav)
-                       buf = buf + data
-                s = txt.find('Cell ID:')
-                if s > -1:
-                   m = re.match("'([0-9]+)'", txt[s+9:])
-                   if m is not None:
-                       cell_id = int(m.group(1))
-                       #print 'cell_id', cell_id
-                       msg = inject_mav.named_value_int_encode(0, 'cell_id', cell_id)
-                       data = msg.pack(inject_mav)
-                       buf = buf + data
+                m = re.search("Current:\n\tNetwork '([0-9a-zA-Z]+)': '-([0-9]+) dBm'", txt)
+                if m is not None:
+                    cell_technology = m.group(1).lower()
+                    cell_rssi = int(m.group(2))
+                    print 'network', cell_technology, cell_rssi
+                m = re.search("Cell ID: '([0-9]+)'\n\t\tMCC: '([0-9]+)'\n\t\tMNC: '([0-9]+)'\n\t\tTracking Area Code: '([0-9]+)'", txt)
+                if m is not None:
+                    cell_id = int(m.group(1))
+                    cell_mcc = int(m.group(2))
+                    cell_mnc = int(m.group(3))
+                    cell_tac = int(m.group(4))
+                    print 'cell', cell_id, cell_mcc, cell_mnc, cell_tac
+                if cell_technology is not None and cell_id is not None:                
+                    msg = inject_mav.cellular_status_encode(cell_technology, cell_rssi, cell_mcc, cell_mnc, cell_tac, cell_id)
+                    data = msg.pack(inject_mav)
+                    buf = buf + data                
                 qmi_ts = time.time()
                 qmi_proc = None
 

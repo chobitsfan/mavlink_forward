@@ -46,37 +46,17 @@ def my_main():
     except serial.SerialException:
         rtk_base = None
     ts = time.time()
-    #ts2 = ts
     qmi_ts = ts
     qmi_proc = None
     buf = ""
     count = 0
     arm_count = 0
     #buzzer = Buzzer()
-    gcs_hb_ts = 0
-    Normal, Hold, Recall, Failsafe = range(4)
-    status = Normal
-    recall_point = None
-    recall_point_ts = 0
     while True:
         cur_ts = time.time()
 
         msg = mav_master.recv_msg()
         if msg is not None and msg.get_type() != "BAD_DATA":
-            if msg.get_type() == "GLOBAL_POSITION_INT" and status == Normal and mav_master.flightmode in ["AUTO", "GUIDED"] and cur_ts - recall_point_ts > 5:
-                recall_point_ts = cur_ts
-                recall_point = (msg.lat, msg.lon, msg.alt)
-                print 'record recall point', recall_point
-            elif msg.get_type() == "HEARTBEAT":
-                if status == Hold and mav_master.flightmode != "BRAKE":
-                    mav_master.set_mode(mav_modes["BRAKE"])
-                elif status == Recall:
-                    if mav_master.flightmode == "GUIDED":
-                        mav_master.mav.set_position_target_global_int_send(0, mav_master.target_system, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_INT, 0b0000111111111000, recall_point[0], recall_point[1], recall_point[2] / 1000.0, 0, 0, 0, 0, 0, 0, 0, 0)
-                    else:
-                        mav_master.set_mode(mav_modes["GUIDED"])
-                elif status == Failsafe and mav_master.flightmode != "LAND":
-                    mav_master.set_mode(mav_modes["LAND"])
             data = msg.pack(inject_mav)
             buf = buf + data
             if len(buf) > 100:
@@ -85,10 +65,6 @@ def my_main():
                 count = count + 1
 
         if rtk_base is not None:
-            #rtcm_data = rtk_base.read(180)
-            #if len(rtcm_data) > 0:
-            #    print 'rtcm data len', len(rtcm_data)
-            #    mav_master.mav.gps_rtcm_data_send(0, len(rtcm_data), bytearray(rtcm_data.ljust(180, '\0')))
             rtcm_msg = rtk_base.recv_msg()
             if rtcm_msg is not None and rtcm_msg.get_type() == 'GPS_RTCM_DATA':
                 print 'rtcm data', rtcm_msg.len
@@ -121,40 +97,8 @@ def my_main():
                         out_msg = inject_mav.statustext_encode(5, "Arm: try again")
                         data = out_msg.pack(inject_mav)
                         buf = buf + data
-            elif msg_type == "HEARTBEAT":
-                gcs_hb_ts = time.time()
-                mav_master.mav.send(msg)
             elif msg_type != "BAD_DATA":
                 mav_master.mav.send(msg)
-
-        if status == Normal:
-            if mav_master.flightmode in ["AUTO", "GUIDED"] and gcs_hb_ts != 0 and cur_ts - gcs_hb_ts > 5:
-                print "Hold"
-                status = Hold
-                mav_master.set_mode(mav_modes["BRAKE"])
-        elif status == Hold:
-            if cur_ts - gcs_hb_ts > 10:
-                print "Recall"
-                status = Recall
-                if recall_point is not None:
-                    mav_master.set_mode(mav_modes["GUIDED"])
-            elif cur_ts - gcs_hb_ts < 1:
-                print "Normal"
-                status = Normal
-        elif status == Recall:
-            if cur_ts - gcs_hb_ts > 20:
-                print "Failsafe"
-                status = Failsafe
-                mav_master.set_mode(mav_modes["LAND"])
-            elif cur_ts - gcs_hb_ts < 1:
-                print "Hold"
-                status = Hold
-                mav_master.set_mode(mav_modes["BRAKE"])
-        elif status == Failsafe:
-            if cur_ts - gcs_hb_ts < 1:
-                print "Hold"
-                status = Hold
-                mav_master.set_mode(mav_modes["BRAKE"])
 
         if cur_ts - ts > 0.02:
             ts = cur_ts
@@ -162,14 +106,9 @@ def my_main():
                 mav_relay.write(buf)
                 buf = ""
                 count = count + 1
-        #if cur_ts - ts2 > 1:
-        #    print count, 'pps'
-        #    ts2 = cur_ts
-        #    count = 0
         if qmi_proc is None:
             if cur_ts - qmi_ts > 5:
                 try:
-                    #qmi_proc = subprocess.Popen(['/usr/bin/qmicli', '-d','/dev/cdc-wdm0','--nas-get-signal-strength'], stdout=subprocess.PIPE)
                     qmi_proc = subprocess.Popen(['./cellular_info.sh'], stdout=subprocess.PIPE)
                 except OSError as oops_err:
                     print oops_err
